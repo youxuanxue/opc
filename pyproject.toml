@@ -1,0 +1,26 @@
+[project]
+name = "opc-platform"
+version = "0.1.0"
+description = "OPC platform CLI and read-only web console"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = ["pypinyin>=0.50"]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0"]
+
+[project.scripts]
+opc = "opc_platform.entrypoints.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["opc_platform", "org"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+

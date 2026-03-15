@@ -1,0 +1,28 @@
+.opc/
+web/node_modules/
+web/dist/
+web/.vite/
+*.tsbuildinfo
+
+# Python
+__pycache__/
+.pytest_cache/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+*.egg-info/
+dist/
+
+# Run artifacts
+compliance_result_*.json
+
+# Dev/run outputs (root)
+*_output.json
+
+# Debug logs
+.cursor/debug*.log
+
+
+transcripts/*

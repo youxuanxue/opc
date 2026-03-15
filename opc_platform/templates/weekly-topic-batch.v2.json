@@ -1,0 +1,700 @@
+{
+  "scenario_id": "weekly-topic-batch",
+  "version": "2.0",
+  "description": "Plan weekly topics and generate one publishable draft flow.",
+  "defaults": {
+    "objective": "聊职场生存与升职技能，每日更新到职场螺丝刀。每篇文章内容字数强约束在1000字-1100字。",
+    "reference_accounts": [
+      "刘润",
+      "职场知行先锋",
+      "栩先生",
+      "MBA智库"
+    ],
+    "topic_days": 7,
+    "source_data_dir": "~/Codes/agent-skills/data",
+    "ai_tone": {
+      "hard_threshold": 0.7,
+      "soft_threshold": 0.5
+    }
+  },
+  "inputs_schema": {
+    "required": [
+      "objective",
+      "reference_accounts"
+    ],
+    "properties": {
+      "objective": {
+        "type": "string"
+      },
+      "topic_days": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 14,
+        "default": 7
+      },
+      "reference_accounts": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 10,
+        "items": {
+          "type": "string"
+        }
+      },
+      "target_account": {
+        "type": "string",
+        "default": "职场螺丝刀"
+      },
+      "publish_day": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 14,
+        "default": 1,
+        "description": "要发布的日期序号；运行时自动限制在 [1, topic_days] 范围内"
+      },
+      "source_data_dir": {
+        "type": "string",
+        "default": "",
+        "description": "预抓取素材目录路径，用于跳过 gzh-scraper 直接使用本地数据。空则走抓取流程。支持 ~ 展开，须为可读目录；路径不应含 .. 或恶意片段。"
+      }
+    }
+  },
+  "graph": {
+    "nodes": [
+      "SourceCollectAgent",
+      "BenchmarkAgent",
+      "TopicBatchPlannerAgent",
+      "DraftWriterAgent",
+      "EditorAgent",
+      "ComplianceAgent",
+      "AIToneDetectorAgent",
+      "AIToneRewriterAgent",
+      "PublisherAgent",
+      "MetricsAgent",
+      "RetroAgent"
+    ],
+    "edges": [
+      {
+        "from": "SourceCollectAgent",
+        "to": "BenchmarkAgent",
+        "required_payload": [
+          "source",
+          "target_account",
+          "reference_accounts",
+          "topic_days"
+        ]
+      },
+      {
+        "from": "BenchmarkAgent",
+        "to": "TopicBatchPlannerAgent",
+        "required_payload": [
+          "summary",
+          "outputs"
+        ]
+      },
+      {
+        "from": "TopicBatchPlannerAgent",
+        "to": "DraftWriterAgent",
+        "required_payload": [
+          "summary",
+          "outputs"
+        ]
+      },
+      {
+        "from": "DraftWriterAgent",
+        "to": "EditorAgent"
+      },
+      {
+        "from": "EditorAgent",
+        "to": "ComplianceAgent"
+      },
+      {
+        "from": "ComplianceAgent",
+        "to": "AIToneDetectorAgent",
+        "required_payload": [
+          "summary",
+          "outputs"
+        ]
+      },
+      {
+        "from": "AIToneDetectorAgent",
+        "to": "AIToneRewriterAgent"
+      },
+      {
+        "from": "AIToneRewriterAgent",
+        "to": "PublisherAgent"
+      },
+      {
+        "from": "PublisherAgent",
+        "to": "MetricsAgent",
+        "required_payload": [
+          "target",
+          "target_account_slug",
+          "saved_to_draft",
+          "command",
+          "jobs"
+        ]
+      },
+      {
+        "from": "MetricsAgent",
+        "to": "RetroAgent",
+        "required_payload": [
+          "summary",
+          "outputs"
+        ]
+      }
+    ]
+  },
+  "execution": {
+    "_placeholders": {
+      "source_collect": {
+        "scraper_config_path": "run_dir/scraper-config.json（运行时写入）",
+        "scraper_output_dir": "run_dir/scraper-output"
+      },
+      "publisher": {
+        "article_path": "article_humanized_day{N}.md 或 article_edited_day{N}.md",
+        "target_account_slug": "由 target_account 经 target_account_to_slug 派生"
+      }
+    },
+    "source_collect": {
+      "command": [
+        "gzh-scraper",
+        "scrape",
+        "--config",
+        "{scraper_config_path}",
+        "--output",
+        "{scraper_output_dir}"
+      ]
+    },
+    "publisher": {
+      "command": [
+        "uv",
+        "run",
+        "python",
+        "-m",
+        "copublisher",
+        "gzh-drafts",
+        "{article_path}",
+        "--account",
+        "{target_account_slug}"
+      ]
+    }
+  },
+  "node_specs": {
+    "SourceCollectAgent": {
+      "business_label": "素材收集",
+      "execution_mode": "internal_source_collect",
+      "runtime": {
+        "type": "external_cmd"
+      },
+      "retry": {
+        "max_attempts": 1
+      },
+      "failure_policy": {
+        "on_exhaust": "fail_fast"
+      },
+      "input_contract": {
+        "from_globals": [
+          "target_account",
+          "reference_accounts",
+          "topic_days",
+          "source_data_dir"
+        ],
+        "required": [
+          "target_account",
+          "reference_accounts",
+          "topic_days"
+        ]
+      },
+      "output_example": {
+        "source": "gzh-scraper",
+        "target_account": "职场螺丝刀",
+        "reference_accounts": [
+          "刘润",
+          "栩先生"
+        ],
+        "topic_days": 7
+      },
+      "prompt": {
+        "system_block": "SourceCollect internal node",
+        "context_block": "target_account: {target_account}\nreference_accounts: {reference_accounts}\ntopic_days: {topic_days}",
+        "task_block": "Collect source materials."
+      }
+    },
+    "BenchmarkAgent": {
+      "business_label": "对标分析",
+      "execution_mode": "single",
+      "runtime": {
+        "type": "cursor_cli",
+        "output_format": "json",
+        "timeout_sec": 90,
+        "trust": true
+      },
+      "retry": {
+        "max_attempts": 2
+      },
+      "failure_policy": {
+        "on_exhaust": "fail_fast"
+      },
+      "input_contract": {
+        "from_globals": [
+          "objective",
+          "reference_accounts",
+          "target_account",
+          "topic_days",
+          "source_materials_summary"
+        ]
+      },
+      "output_example": {
+        "summary": "可量化基准说明",
+        "outputs": [
+          {
+            "dimension": "正文字数",
+            "value": "1000字–1100字"
+          },
+          {
+            "dimension": "更新频率",
+            "value": "每日1篇"
+          },
+          {
+            "dimension": "内容定位",
+            "value": "职场生存与升职技能"
+          }
+        ],
+        "quality_checks": []
+      },
+      "prompt": {
+        "system_block": "你是 BenchmarkAgent。请严格按照 output_example 结构与字段输出。",
+        "context_block": "业务目标：{objective}\n目标公众号：{target_account}\n参考账号：{reference_accounts}\ntopic_days: {topic_days}\n素材摘要：{source_materials_summary}",
+        "task_block": "基于业务目标与对标账号，产出可量化的 benchmark 评估。"
+      }
+    },
+    "TopicBatchPlannerAgent": {
+      "business_label": "选题规划",
+      "execution_mode": "single",
+      "runtime": {
+        "type": "cursor_cli",
+        "output_format": "json",
+        "timeout_sec": 90,
+        "trust": true
+      },
+      "retry": {
+        "max_attempts": 2
+      },
+      "failure_policy": {
+        "on_exhaust": "fail_fast"
+      },
+      "input_contract": {
+        "from_globals": [
+          "objective",
+          "topic_days"
+        ],
+        "from_upstream": [
+          {
+            "node": "BenchmarkAgent",
+            "map": {
+              "summary": "benchmark_summary",
+              "outputs": "benchmark_outputs"
+            }
+          }
+        ]
+      },
+      "output_example": {
+        "summary": "简要说明选题规划依据",
+        "outputs": [
+          {
+            "day": 1,
+            "topic": "汇报能力",
+            "angle": "领导只给3分钟时如何说清要点"
+          },
+          {
+            "day": 2,
+            "topic": "向上管理",
+            "angle": "用预期管理让领导放心"
+          }
+        ],
+        "quality_checks": []
+      },
+      "prompt": {
+        "system_block": "你是 TopicBatchPlannerAgent。请严格按照 output_example 结构与字段输出。",
+        "context_block": "业务目标：{objective}\ntopic_days: {topic_days}\nbenchmark_summary: {benchmark_summary}\nbenchmark_outputs: {benchmark_outputs}",
+        "task_block": "基于业务目标与 benchmark，规划本周可执行选题，按日产出 day/topic/angle。"
+      }
+    },
+    "DraftWriterAgent": {
+      "business_label": "初稿撰写",
+      "execution_mode": "per_day_article",
+      "runtime": {
+        "type": "cursor_cli",
+        "output_format": "json",
+        "timeout_sec": 180,
+        "trust": true
+      },
+      "retry": {
+        "max_attempts": 2
+      },
+      "failure_policy": {
+        "on_exhaust": "fail_fast"
+      },
+      "input_contract": {
+        "from_globals": [
+          "objective",
+          "source_materials_summary",
+          "benchmark_summary"
+        ],
+        "from_upstream": [
+          "day",
+          "topic",
+          "angle"
+        ],
+        "required": [
+          "day",
+          "topic",
+          "angle",
+          "benchmark_summary"
+        ]
+      },
+      "output_example": {
+        "summary": "撰写说明",
+        "outputs": [
+          {
+            "article_markdown": "# 标题\n\n正文段落..."
+          }
+        ],
+        "quality_checks": []
+      },
+      "prompt": {
+        "system_block": "你是 DraftWriterAgent。请严格按照 output_example 结构与字段输出。正文要求：1000-1100 字，至少 5 段。\n\n重要：必须将完整 JSON（含完整 article_markdown 正文）直接输出到回复中，禁止只写入文件再在回复中放占位或摘要。你的回复是下游流程的唯一输入来源。",
+        "context_block": "业务目标：{objective}\nday: {day}\ntopic: {topic}\nangle: {angle}\nbenchmark_summary: {benchmark_summary}\n素材摘要：{source_materials_summary}",
+        "task_block": "基于业务目标与选题角度，撰写可发布的 markdown 正文。正文字数 1000-1100 字，至少 5 段。输出完整的 summary、outputs（含 article_markdown 全文）、quality_checks，不得省略或占位。"
+      }
+    },
+    "EditorAgent": {
+      "business_label": "编辑润色",
+      "execution_mode": "per_day_editor",
+      "runtime": {
+        "type": "cursor_cli",
+        "output_format": "json",
+        "timeout_sec": 90,
+        "trust": true
+      },
+      "retry": {
+        "max_attempts": 2
+      },
+      "failure_policy": {
+        "on_exhaust": "fail_fast"
+      },
+      "input_contract": {
+        "from_upstream": [
+          "day",
+          "topic",
+          "angle",
+          "article_markdown"
+        ],
+        "required": [
+          "day",
+          "topic",
+          "article_markdown"
+        ]
+      },
+      "output_example": {
+        "summary": "润色说明",
+        "outputs": [
+          {
+            "article_markdown": "# 标题\n\n润色后的正文..."
+          }
+        ],
+        "quality_checks": []
+      },
+      "prompt": {
+        "system_block": "你是 EditorAgent。请严格按照 output_example 结构与字段输出。\n\n重要：必须将完整 JSON（含完整 article_markdown 正文）直接输出到回复中，禁止只写入文件再在回复中放占位或摘要。你的回复是下游流程的唯一输入来源。",
+        "context_block": "day: {day}\ntopic: {topic}\nangle: {angle}\n原文：\n{article_markdown}",
+        "task_block": "编辑润色正文，输出可发布版本。输出完整的 summary、outputs（含 article_markdown 全文）、quality_checks，不得省略或占位。"
+      }
+    },
+    "ComplianceAgent": {
+      "business_label": "合规校验",
+      "execution_mode": "per_day_compliance",
+      "runtime": {
+        "type": "cursor_cli",
+        "output_format": "json",
+        "timeout_sec": 90,
+        "trust": true
+      },
+      "retry": {
+        "max_attempts": 2
+      },
+      "failure_policy": {
+        "on_exhaust": "fail_fast"
+      },
+      "input_contract": {
+        "from_upstream": [
+          "day",
+          "topic",
+          "angle",
+          "article_markdown"
+        ],
+        "required": [
+          "day",
+          "article_markdown"
+        ]
+      },
+      "output_example": {
+        "summary": "合规校验摘要",
+        "outputs": [
+          {
+            "day": 1,
+            "passed": true,
+            "note": ""
+          }
+        ],
+        "quality_checks": []
+      },
+      "prompt": {
+        "system_block": "你是 ComplianceAgent。请严格按照 output_example 结构与字段输出。",
+        "context_block": "day: {day}\ntopic: {topic}\nangle: {angle}\n正文：\n{article_markdown}",
+        "task_block": "校验内容合规性，输出每篇的通过状态与说明。"
+      }
+    },
+    "AIToneDetectorAgent": {
+      "business_label": "AI 味检测",
+      "execution_mode": "per_day_ai_detect",
+      "runtime": {
+        "type": "cursor_cli",
+        "output_format": "json",
+        "timeout_sec": 90,
+        "trust": true
+      },
+      "retry": {
+        "max_attempts": 2,
+        "on_retry_hint": "ai_tone_score 必须是 0~1 的浮点数，outputs[0] 和 quality_checks 必须含 ai_tone_score、explanation，禁止百分制"
+      },
+      "failure_policy": {
+        "on_exhaust": "fail_fast"
+      },
+      "input_contract": {
+        "from_upstream": [
+          "day",
+          "topic",
+          "angle",
+          "article_markdown",
+          "compliance_summary",
+          "compliance_day_passed",
+          "compliance_day_note"
+        ],
+        "required": [
+          "day",
+          "article_markdown",
+          "compliance_summary",
+          "compliance_day_passed"
+        ]
+      },
+      "output_example": {
+        "summary": "AI味评估摘要",
+        "ai_tone_score": 0.42,
+        "outputs": [
+          {
+            "ai_tone_score": 0.42,
+            "explanation": "部分表述偏模板化"
+          }
+        ],
+        "quality_checks": [
+          {
+            "ai_tone_score": 0.42,
+            "explanation": "整体可接受"
+          }
+        ]
+      },
+      "output_example_value_range": {
+        "ai_tone_score": [
+          0.0,
+          1.0
+        ]
+      },
+      "prompt": {
+        "system_block": "你是 AIToneDetectorAgent。请严格按照 output_example 结构与字段输出。硬性规则：1) ai_tone_score 必须是 0~1 的浮点数（如 0.42），禁止 42、42% 等百分制；2) outputs 和 quality_checks 必须含 ai_tone_score、explanation；3) 输出首字符必须是 {，末字符必须是 }。",
+        "context_block": "day: {day}\ntopic: {topic}\ncompliance_summary: {compliance_summary}\ncompliance_day_passed: {compliance_day_passed}\ncompliance_day_note: {compliance_day_note}\n正文：\n{article_markdown}",
+        "task_block": "评估正文 AI 味程度，产出分数与解释。"
+      }
+    },
+    "AIToneRewriterAgent": {
+      "business_label": "AI 味改写",
+      "execution_mode": "per_day_ai_rewrite",
+      "runtime": {
+        "type": "cursor_cli",
+        "output_format": "json",
+        "timeout_sec": 90,
+        "trust": true
+      },
+      "retry": {
+        "max_attempts": 2
+      },
+      "failure_policy": {
+        "on_exhaust": "continue_with_guard"
+      },
+      "gate": "ai_tone_score >= soft_threshold",
+      "input_contract": {
+        "from_upstream": [
+          "day",
+          "topic",
+          "angle",
+          "article_markdown",
+          "ai_tone_score"
+        ],
+        "required": [
+          "day",
+          "article_markdown",
+          "ai_tone_score"
+        ]
+      },
+      "output_example": {
+        "summary": "改写说明",
+        "outputs": [
+          {
+            "article_markdown": "# 标题\n\n改写后的正文..."
+          }
+        ],
+        "quality_checks": []
+      },
+      "prompt": {
+        "system_block": "你是 AIToneRewriterAgent。请严格按照 output_example 结构与字段输出。\n\n重要：必须将完整 JSON（含完整 article_markdown 正文）直接输出到回复中，禁止只写入文件再在回复中放占位或摘要。你的回复是下游流程的唯一输入来源。",
+        "context_block": "day: {day}\ntopic: {topic}\nai_tone_score: {ai_tone_score}\n正文：\n{article_markdown}",
+        "task_block": "降低正文 AI 味，产出更自然的改写稿。输出完整的 summary、outputs（含 article_markdown 全文）、quality_checks，不得省略或占位。"
+      }
+    },
+    "PublisherAgent": {
+      "business_label": "发布",
+      "execution_mode": "internal_publish",
+      "runtime": {
+        "type": "external_cmd"
+      },
+      "retry": {
+        "max_attempts": 1
+      },
+      "failure_policy": {
+        "on_exhaust": "fail_fast"
+      },
+      "input_contract": {
+        "from_globals": [
+          "publish_day",
+          "target_account"
+        ],
+        "from_runtime": [
+          "target_account_slug"
+        ],
+        "description": "target_account_slug 由运行时根据 target_account 派生"
+      },
+      "output_example": {
+        "target": "职场螺丝刀",
+        "target_account_slug": "zhichangluosidao",
+        "saved_to_draft": true,
+        "command": [
+          "uv",
+          "run",
+          "python",
+          "-m",
+          "copublisher",
+          "gzh-drafts",
+          "article_edited_day1.md",
+          "--account",
+          "zhichangluosidao"
+        ],
+        "jobs": []
+      },
+      "prompt": {
+        "system_block": "Publisher internal node",
+        "context_block": "publish_day: {publish_day}\ntarget_account: {target_account}\ntarget_account_slug: {target_account_slug}",
+        "task_block": "Publish final artifact."
+      }
+    },
+    "MetricsAgent": {
+      "business_label": "指标汇总",
+      "execution_mode": "single",
+      "runtime": {
+        "type": "cursor_cli",
+        "output_format": "json",
+        "timeout_sec": 90,
+        "trust": true
+      },
+      "retry": {
+        "max_attempts": 2
+      },
+      "failure_policy": {
+        "on_exhaust": "fail_fast"
+      },
+      "input_contract": {
+        "from_upstream": [
+          "publish_result_summary",
+          "compliance_summary",
+          "ai_tone_summary"
+        ]
+      },
+      "output_example": {
+        "summary": "指标汇总说明",
+        "outputs": [
+          {
+            "dimension": "发布状态",
+            "value": "已保存草稿"
+          }
+        ],
+        "quality_checks": []
+      },
+      "prompt": {
+        "system_block": "你是 MetricsAgent。请严格按照 output_example 结构与字段输出。",
+        "context_block": "publish_result_summary: {publish_result_summary}\ncompliance_summary: {compliance_summary}\nai_tone_summary: {ai_tone_summary}",
+        "task_block": "汇总发布与合规结果，产出结构化指标报告。"
+      }
+    },
+    "RetroAgent": {
+      "business_label": "复盘",
+      "execution_mode": "single",
+      "runtime": {
+        "type": "cursor_cli",
+        "output_format": "json",
+        "timeout_sec": 90,
+        "trust": true
+      },
+      "retry": {
+        "max_attempts": 2
+      },
+      "failure_policy": {
+        "on_exhaust": "fail_fast"
+      },
+      "input_contract": {
+        "from_globals": [
+          "diagnostics_summary",
+          "scenario_id",
+          "graph_nodes"
+        ],
+        "from_upstream": [
+          {
+            "node": "MetricsAgent",
+            "map": {
+              "summary": "metrics_summary",
+              "outputs": "metrics_outputs"
+            }
+          }
+        ],
+        "required": [
+          "metrics_summary",
+          "metrics_outputs"
+        ],
+        "description": "diagnostics_summary 由运行时从 timeline diagnostics 聚合注入；scenario_id、graph_nodes 由运行时注入"
+      },
+      "output_example": {
+        "summary": "复盘摘要",
+        "outputs": [
+          {
+            "action": "改进项",
+            "priority": "高"
+          }
+        ],
+        "quality_checks": []
+      },
+      "prompt": {
+        "system_block": "你是 RetroAgent。请严格按照 output_example 结构与字段输出。",
+        "context_block": "scenario_id: {scenario_id}\ngraph_nodes: {graph_nodes}\nmetrics_summary: {metrics_summary}\nmetrics_outputs: {metrics_outputs}\ndiagnostics: {diagnostics_summary}",
+        "task_block": "基于本 scenario 的完整 Graph 与 template 执行过程、各节点结果、诊断与指标，产出复盘问题与改进行动项。"
+      }
+    }
+  }
+}

@@ -1,0 +1,438 @@
+:root {
+  --primary: #0f4c81;
+  --success: #2cb67d;
+  --warning: #f59e0b;
+  --danger: #e11d48;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "PingFang SC", "Noto Sans SC", sans-serif;
+  background: linear-gradient(160deg, #f7f9fc, #f2f4f7);
+  color: #0b1020;
+}
+
+.layout {
+  max-width: 1200px;
+  margin: 24px auto;
+  padding: 0 14px 40px;
+}
+
+.hero {
+  background: var(--primary);
+  color: #fff;
+  border-radius: 14px;
+  padding: 20px;
+  box-shadow: 0 10px 28px rgba(15, 76, 129, 0.25);
+}
+
+.hero h1 {
+  margin: 0 0 6px;
+}
+
+.hero p {
+  margin: 0;
+  opacity: 0.9;
+}
+
+.toolbar,
+.tabs {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-top: 12px;
+}
+
+.toolbar label,
+.form-card label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+}
+
+select,
+input,
+textarea,
+button {
+  border: 1px solid #d0d7e3;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 14px;
+}
+
+textarea {
+  min-height: 110px;
+}
+
+button {
+  cursor: pointer;
+  background: #fff;
+}
+
+.tabs button.active {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+}
+
+.primary-cta {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+  font-weight: 700;
+}
+
+.metrics-strip {
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+
+.metric-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 14px;
+  box-shadow: 0 8px 18px rgba(11, 16, 32, 0.08);
+}
+
+.metric-card h4 {
+  margin: 0 0 6px;
+  font-size: 13px;
+  color: #475467;
+}
+
+.metric-card p {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.metric-card.success {
+  border-top: 3px solid var(--success);
+}
+
+.metric-card.warning {
+  border-top: 3px solid var(--warning);
+}
+
+.metric-card.danger {
+  border-top: 3px solid var(--danger);
+}
+
+.card {
+  margin-top: 14px;
+  background: #fff;
+  border-radius: 14px;
+  padding: 16px;
+  box-shadow: 0 8px 22px rgba(11, 16, 32, 0.08);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  text-align: left;
+  border-bottom: 1px solid #edf0f5;
+  padding: 10px;
+}
+
+.message {
+  margin-top: 10px;
+  border-left: 3px solid var(--success);
+  background: #f3fcf8;
+  padding: 8px 10px;
+}
+
+.feedback-card {
+  border-left: 3px solid var(--success);
+}
+
+.feedback-card h3 {
+  margin: 0 0 8px;
+}
+
+.feedback-card p {
+  margin: 0 0 6px;
+}
+
+.execution-overview-card h3 {
+  margin: 0 0 6px;
+}
+
+.execution-overview-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.execution-overview-head p {
+  margin: 0;
+  color: #475467;
+}
+
+.execution-overview-node {
+  margin: 10px 0 8px;
+  font-size: 13px;
+  color: #334155;
+}
+
+.execution-warning {
+  margin: 0 0 8px;
+  color: var(--danger);
+  font-size: 13px;
+}
+
+.execution-graph-wrap {
+  margin-top: 6px;
+  overflow-x: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #f8fafc;
+  padding: 10px;
+}
+
+.exec-edge {
+  stroke: #d4dce8;
+  stroke-width: 2;
+}
+
+.exec-edge.done {
+  stroke: #7ba7ce;
+}
+
+.exec-node {
+  stroke-width: 1.5;
+}
+
+.exec-node.status-pending {
+  fill: #eef2f7;
+  stroke: #cbd5e1;
+}
+
+.exec-node.status-running {
+  fill: #dbeafe;
+  stroke: var(--primary);
+}
+
+.exec-node.status-succeed {
+  fill: #dcfce7;
+  stroke: var(--success);
+}
+
+.exec-node.status-failed {
+  fill: #ffe4e6;
+  stroke: var(--danger);
+}
+
+.exec-node.status-cancelled,
+.exec-node.status-timeout {
+  fill: #fff7ed;
+  stroke: var(--warning);
+}
+
+.exec-node.current {
+  stroke-width: 2.5;
+}
+
+.exec-node-label {
+  font-size: 12px;
+  fill: #0f172a;
+  font-weight: 600;
+  pointer-events: none;
+}
+
+.primary-action-card p {
+  color: #475467;
+  margin: 0 0 8px;
+}
+
+.primary-action-card p strong {
+  color: #0f172a;
+  margin-right: 4px;
+}
+
+.primary-action-card button {
+  margin-top: 4px;
+}
+
+.todo-list {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.todo-list li {
+  margin: 6px 0;
+}
+
+.decision-review {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr;
+  gap: 12px;
+}
+
+.decision-main p {
+  margin: 0 0 8px;
+}
+
+.decision-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.decision-evidence pre {
+  background: #0b1020;
+  color: #d9e2ff;
+  border-radius: 10px;
+  padding: 10px;
+  max-height: 230px;
+  overflow: auto;
+}
+
+.card pre {
+  background: #0b1020;
+  color: #d9e2ff;
+  border-radius: 10px;
+  padding: 10px;
+  max-height: 260px;
+  overflow: auto;
+  white-space: pre-wrap;
+}
+
+.graph-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.graph-grid pre {
+  background: #0b1020;
+  color: #d9e2ff;
+  border-radius: 10px;
+  padding: 10px;
+  overflow: auto;
+}
+
+.form-card {
+  display: grid;
+  gap: 10px;
+}
+
+.publish-toolbar {
+  display: flex;
+  gap: 10px;
+  align-items: end;
+  margin-bottom: 12px;
+}
+
+.publish-metrics {
+  margin-bottom: 12px;
+}
+
+.publish-filter-label {
+  font-size: 13px;
+  color: #475467;
+  margin-right: 6px;
+}
+
+.planning-toolbar {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+  margin-bottom: 12px;
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.calendar-day-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 12px;
+  transition: box-shadow 0.2s;
+}
+
+.calendar-day-card:hover {
+  box-shadow: 0 4px 12px rgba(11, 16, 32, 0.1);
+}
+
+.calendar-day-card h4 {
+  margin: 0 0 6px;
+  font-size: 14px;
+  color: var(--primary);
+}
+
+.calendar-topic {
+  margin: 0 0 4px;
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 1.3;
+}
+
+.calendar-angle {
+  display: block;
+  margin: 0 0 8px;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.calendar-status {
+  display: inline-block;
+  margin-top: 6px;
+}
+
+.execution-diagnostics {
+  margin: 8px 0;
+  padding: 10px;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 8px;
+}
+
+.fix-hint {
+  margin: 4px 0 0;
+  color: #9a3412;
+  font-size: 13px;
+}
+
+.pill {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #334155;
+  font-size: 12px;
+  margin-right: 6px;
+}
+
+td button.active {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+}
+
+@media (max-width: 900px) {
+  .metrics-strip {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .decision-review {
+    grid-template-columns: 1fr;
+  }
+}
+
