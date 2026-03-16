@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import sys
 import mimetypes
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -427,6 +428,10 @@ def serve_web(root: Path, host: str, port: int) -> None:
                             release_path = ap
                             break
                     if release_path is None:
+                        fallback = WorkspaceRepo(root).artifacts_dir / run_id / "release_manifest.json"
+                        if fallback.exists():
+                            release_path = fallback
+                    if release_path is None:
                         raise ValueError("release_manifest not found")
                     manifest = read_json(release_path)
                     if not isinstance(manifest, dict):
@@ -469,8 +474,10 @@ def serve_web(root: Path, host: str, port: int) -> None:
             except (BrokenPipeError, ConnectionResetError):
                 pass  # client disconnected, nothing to send
             except Exception as exc:  # noqa: BLE001
+                err_msg = str(exc)
+                print(f"[api error] {err_msg}", file=sys.stderr)
                 try:
-                    self._json_response(400, {"error": str(exc)})
+                    self._json_response(400, {"error": err_msg})
                 except (BrokenPipeError, ConnectionResetError):
                     pass
 

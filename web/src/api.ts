@@ -7,7 +7,14 @@ async function req<T>(url: string, init?: RequestInit): Promise<T> {
   });
   if (!r.ok) {
     const txt = await r.text();
-    throw new Error(txt || `HTTP ${r.status}`);
+    let msg = txt || `HTTP ${r.status}`;
+    try {
+      const parsed = JSON.parse(txt) as { error?: string };
+      if (parsed?.error) msg = parsed.error;
+    } catch {
+      /* use raw txt */
+    }
+    throw new Error(msg);
   }
   return (await r.json()) as T;
 }
