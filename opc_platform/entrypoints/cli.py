@@ -58,6 +58,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_create.add_argument("--id", required=True)
     p_create.add_argument("--name", required=True)
     p_create.add_argument("--from-template", required=True)
+    p_create.add_argument("--account", default=None, help="Account preset key (required for gzh-curator)")
     p_describe = opc_sub.add_parser("describe", help="Describe OPC")
     p_describe.add_argument("--id", required=True)
 
@@ -137,7 +138,7 @@ def main(argv: list[str] | None = None) -> int:
             return 0
 
         if args.command == "opc" and args.opc_action == "create":
-            payload = create_opc(root, args.id, args.name, args.from_template)
+            payload = create_opc(root, args.id, args.name, args.from_template, args.account)
             _dump(payload, as_json)
             return 0
 

@@ -3,15 +3,10 @@
   "version": "2.0",
   "description": "Plan weekly topics and generate one publishable draft flow.",
   "defaults": {
-    "objective": "聊职场生存与升职技能，每日更新到职场螺丝刀。每篇文章内容字数强约束在1000字-1100字。",
-    "reference_accounts": [
-      "刘润",
-      "职场知行先锋",
-      "栩先生",
-      "MBA智库"
-    ],
+    "objective": "",
+    "reference_accounts": [],
     "topic_days": 7,
-    "source_data_dir": "~/Codes/agent-skills/data",
+    "source_data_dir": "",
     "ai_tone": {
       "hard_threshold": 0.7,
       "soft_threshold": 0.5
@@ -42,7 +37,7 @@
       },
       "target_account": {
         "type": "string",
-        "default": "职场螺丝刀"
+        "default": ""
       },
       "publish_day": {
         "type": "integer",

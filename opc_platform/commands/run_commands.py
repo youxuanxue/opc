@@ -7,6 +7,7 @@ import uuid
 from pathlib import Path
 from typing import Any
 
+from .opc_commands import merge_run_inputs
 from ..domain.templates import load_template
 from ..domain.engine import execute_run
 from ..observability.events import node_event
@@ -18,7 +19,15 @@ def _sync_scenario_with_template(repo: WorkspaceRepo, opc_id: str, scenario_id: 
     manifest = repo.load_manifest(opc_id)
     template_name = str(manifest.get("template_name") or "gzh-curator")
     opc_name = str(manifest.get("name") or opc_id)
-    tpl = load_template(template_name=template_name, opc_id=opc_id, name=opc_name)
+    account_preset = str(manifest.get("account_preset") or "").strip()
+    if template_name == "gzh-curator" and not account_preset:
+        raise ValueError("manifest missing account_preset for template gzh-curator")
+    tpl = load_template(
+        template_name=template_name,
+        opc_id=opc_id,
+        name=opc_name,
+        account_preset=account_preset or None,
+    )
     scenarios = tpl.get("scenarios") if isinstance(tpl, dict) else None
     if not isinstance(scenarios, dict):
         raise ValueError(f"template scenarios malformed: {template_name}")
@@ -39,12 +48,14 @@ def run_scenario(
     safe_scenario_id = ensure_safe_id(scenario_id, "scenario_id")
     repo = WorkspaceRepo(root)
     repo.init_workspace()
+    manifest = repo.load_manifest(safe_opc_id)
     _sync_scenario_with_template(repo=repo, opc_id=safe_opc_id, scenario_id=safe_scenario_id)
+    merged_inputs = merge_run_inputs(manifest, inputs)
     return execute_run(
         repo=repo,
         opc_id=safe_opc_id,
         scenario_id=safe_scenario_id,
-        inputs=inputs,
+        inputs=merged_inputs,
         execute_integrations=execute_integrations,
     )
 
@@ -98,8 +109,10 @@ def start_scenario_run(
     safe_scenario_id = ensure_safe_id(scenario_id, "scenario_id")
     repo = WorkspaceRepo(root)
     repo.init_workspace()
+    manifest = repo.load_manifest(safe_opc_id)
     _sync_scenario_with_template(repo=repo, opc_id=safe_opc_id, scenario_id=safe_scenario_id)
     run_id = f"run-{uuid.uuid4().hex[:10]}"
+    merged_inputs = merge_run_inputs(manifest, inputs)
 
     def _target() -> None:
         try:
@@ -107,7 +120,7 @@ def start_scenario_run(
                 repo=repo,
                 opc_id=safe_opc_id,
                 scenario_id=safe_scenario_id,
-                inputs=inputs,
+                inputs=merged_inputs,
                 execute_integrations=execute_integrations,
                 run_id=run_id,
             )
@@ -157,10 +170,12 @@ def retry_scenario_run(
     resume_from = ensure_safe_token(resume_from, "from_node")
     parent_opc_id = ensure_safe_id(str(parent.get("opc_id") or ""), "opc_id")
     parent_scenario_id = ensure_safe_id(str(parent.get("scenario_id") or ""), "scenario_id")
+    manifest = repo.load_manifest(parent_opc_id)
     _sync_scenario_with_template(repo=repo, opc_id=parent_opc_id, scenario_id=parent_scenario_id)
-    merged_inputs = dict(parent.get("inputs") or {})
+    retry_inputs = dict(parent.get("inputs") or {})
     if input_overrides:
-        merged_inputs.update(input_overrides)
+        retry_inputs.update(input_overrides)
+    merged_inputs = merge_run_inputs(manifest, retry_inputs)
     return execute_run(
         repo=repo,
         opc_id=parent_opc_id,
@@ -194,10 +209,12 @@ def start_retry_scenario_run(
     resume_from = ensure_safe_token(resume_from, "from_node")
     parent_opc_id = ensure_safe_id(str(parent.get("opc_id") or ""), "opc_id")
     parent_scenario_id = ensure_safe_id(str(parent.get("scenario_id") or ""), "scenario_id")
+    manifest = repo.load_manifest(parent_opc_id)
     _sync_scenario_with_template(repo=repo, opc_id=parent_opc_id, scenario_id=parent_scenario_id)
-    merged_inputs = dict(parent.get("inputs") or {})
+    retry_inputs = dict(parent.get("inputs") or {})
     if input_overrides:
-        merged_inputs.update(input_overrides)
+        retry_inputs.update(input_overrides)
+    merged_inputs = merge_run_inputs(manifest, retry_inputs)
     new_run_id = f"run-{uuid.uuid4().hex[:10]}"
 
     def _target() -> None:

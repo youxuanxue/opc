@@ -29,6 +29,12 @@ type NextBestAction = {
   };
 };
 
+type PresetItem = {
+  key: string;
+  target_account: string;
+  name: string;
+};
+
 type NodeExecStatus = "pending" | "running" | "succeed" | "failed" | "cancelled" | "timeout";
 
 type NodePoint = {
@@ -137,9 +143,10 @@ export function App() {
   const [selectedOpc, setSelectedOpc] = useState<string>("");
   const [scenario, setScenario] = useState<string>("");
   const [appConfig, setAppConfig] = useState<{
-    default_opc_create?: { opc_id: string; name: string; template: string };
+    default_opc_create?: { opc_id: string; name: string; template: string; account_preset?: string };
     default_scenario_id?: string;
   }>({});
+  const [presets, setPresets] = useState<PresetItem[]>([]);
   const [message, setMessage] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
   const [feedback, setFeedback] = useState<CompletionFeedback | null>(null);
@@ -162,6 +169,11 @@ export function App() {
   const [planningRunId, setPlanningRunId] = useState<string>("");
   const [planningManifest, setPlanningManifest] = useState<ReleaseManifest | null>(null);
   const [publishRiskFilter, setPublishRiskFilter] = useState<string>("all");
+  const [showManualCreate, setShowManualCreate] = useState<boolean>(false);
+  const [createOpcId, setCreateOpcId] = useState<string>("");
+  const [createName, setCreateName] = useState<string>("");
+  const [createTemplate, setCreateTemplate] = useState<string>("gzh-curator");
+  const [createAccountPreset, setCreateAccountPreset] = useState<string>("");
   const streamRef = useRef<EventSource | null>(null);
 
   const [objective, setObjective] = useState("");
@@ -293,11 +305,12 @@ export function App() {
   async function refreshAll() {
     setLoading(true);
     try {
-      const [t, o, r, d] = await Promise.all([
+      const [t, o, r, d, presetResp] = await Promise.all([
         api.theme(),
         api.opcs(),
         api.runs(selectedOpc || undefined),
         api.decisions(selectedOpc || undefined),
+        api.presets(),
       ]);
       const errors = await api.errorLogs(20);
       setTheme(t);
@@ -307,6 +320,7 @@ export function App() {
       }
       setRuns(r);
       setDecisions(d);
+      setPresets(Array.isArray(presetResp.presets) ? presetResp.presets : []);
       if (selectedOpc) {
         const effScenario = scenario || appConfig.default_scenario_id;
         if (effScenario) {
@@ -336,6 +350,10 @@ export function App() {
       try {
         const cfg = await api.config();
         setAppConfig(cfg);
+        setCreateOpcId((prev) => prev || cfg.default_opc_create?.opc_id || "gzh-curator");
+        setCreateName((prev) => prev || cfg.default_opc_create?.name || "GzhCuratorOpc");
+        setCreateTemplate((prev) => prev || cfg.default_opc_create?.template || "gzh-curator");
+        setCreateAccountPreset((prev) => prev || cfg.default_opc_create?.account_preset || "");
         if (!scenario && cfg.default_scenario_id) {
           setScenario(cfg.default_scenario_id);
         }
@@ -351,27 +369,23 @@ export function App() {
   }, [selectedOpc, scenario]);
 
   useEffect(() => {
+    if (createAccountPreset) return;
+    if (appConfig.default_opc_create?.account_preset) {
+      setCreateAccountPreset(appConfig.default_opc_create.account_preset);
+      return;
+    }
+    if (presets.length > 0) {
+      setCreateAccountPreset(presets[0].key);
+    }
+  }, [createAccountPreset, appConfig.default_opc_create, presets]);
+
+  useEffect(() => {
     const effectiveScenario = scenario || appConfig.default_scenario_id || "weekly-topic-batch";
     if (!effectiveScenario) return;
+    if (opcs.length === 0) return;
     void (async () => {
       try {
         const defaults = await api.planningDefaults(effectiveScenario, selectedOpc || undefined);
-        // #region agent log
-        try {
-          fetch("http://127.0.0.1:7609/ingest/3d4d7740-3689-4d56-9984-7c27de7dd5ad", {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "be1443" },
-            body: JSON.stringify({
-              sessionId: "be1443",
-              hypothesisId: "H4,H5",
-              location: "App.tsx.planningDefaults",
-              message: "frontend_received",
-              data: { objective: String(defaults?.objective ?? "").slice(0, 120), selectedOpc },
-              timestamp: Date.now(),
-            }),
-          }).catch(() => {});
-        } catch (_) {}
-        // #endregion
         setObjective(String(defaults.objective ?? "").trim());
         setRefs(
           Array.isArray(defaults.reference_accounts)
@@ -388,7 +402,7 @@ export function App() {
         // keep current values on error
       }
     })();
-  }, [selectedOpc, scenario, appConfig.default_scenario_id]);
+  }, [selectedOpc, scenario, appConfig.default_scenario_id, opcs]);
 
   useEffect(() => {
     return () => {
@@ -681,11 +695,49 @@ export function App() {
         opc_id: cfg.opc_id,
         name: cfg.name,
         template: cfg.template,
+        account_preset: cfg.account_preset,
       });
       setSelectedOpc(String((payload as { opc_id?: string }).opc_id ?? cfg.opc_id));
       setFeedback({
         title: "已完成：初始化 OPC",
         detail: `已创建 ${cfg.name}，可以继续生成本周内容计划。`,
+      });
+      await refreshAll();
+    } catch (err) {
+      setMessage(String(err));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function createManualOpc() {
+    const opcId = createOpcId.trim();
+    const opcName = createName.trim();
+    const template = createTemplate.trim() || "gzh-curator";
+    const accountPreset = createAccountPreset.trim();
+    if (!opcId || !opcName) {
+      setMessage("请填写 opc_id 和 name");
+      return;
+    }
+    if (template === "gzh-curator" && !accountPreset) {
+      setMessage("gzh-curator 模板必须选择 account_preset");
+      return;
+    }
+    setLoading(true);
+    setMessage("");
+    try {
+      const payload = await api.createOpc({
+        opc_id: opcId,
+        name: opcName,
+        template,
+        account_preset: template === "gzh-curator" ? accountPreset : undefined,
+      });
+      const createdId = String((payload as { opc_id?: string }).opc_id ?? opcId);
+      setSelectedOpc(createdId);
+      setShowManualCreate(false);
+      setFeedback({
+        title: "已完成：手动创建 OPC",
+        detail: `已创建 ${createdId}，可继续执行内容计划。`,
       });
       await refreshAll();
     } catch (err) {
@@ -846,6 +898,10 @@ export function App() {
         rationale: "当前阶段先完成基础搭建，避免后续动作无效。",
         expectedResult: "创建后将自动进入计划生成阶段。",
         onClick: () => void createDefaultOpc(),
+        secondaryAction: {
+          label: showManualCreate ? "隐藏手动创建" : "手动创建",
+          onClick: () => setShowManualCreate((s) => !s),
+        },
       };
     }
     if (executionState === "running") {
@@ -955,7 +1011,46 @@ export function App() {
         <button onClick={() => void refreshAll()} disabled={loading}>
           Refresh
         </button>
+        <button onClick={() => setShowManualCreate((s) => !s)} disabled={loading}>
+          {showManualCreate ? "取消新建" : "新建 OPC"}
+        </button>
       </section>
+
+      {showManualCreate && (
+        <section className="card form-card">
+          <h3>手动创建 OPC</h3>
+          <label>
+            OPC ID
+            <input value={createOpcId} onChange={(e) => setCreateOpcId(e.target.value)} placeholder="yiqi-growth" />
+          </label>
+          <label>
+            Name
+            <input value={createName} onChange={(e) => setCreateName(e.target.value)} placeholder="懿起成长GzhCuratorOpc" />
+          </label>
+          <label>
+            Template
+            <input value={createTemplate} onChange={(e) => setCreateTemplate(e.target.value)} placeholder="gzh-curator" />
+          </label>
+          <label>
+            Account Preset
+            <select
+              value={createAccountPreset}
+              onChange={(e) => setCreateAccountPreset(e.target.value)}
+              disabled={createTemplate.trim() !== "gzh-curator"}
+            >
+              <option value="">{createTemplate.trim() === "gzh-curator" ? "请选择 preset" : "当前模板不需要"}</option>
+              {presets.map((p) => (
+                <option key={p.key} value={p.key}>
+                  {p.key} / {p.target_account}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button className="primary-cta" onClick={() => void createManualOpc()} disabled={loading}>
+            创建 OPC
+          </button>
+        </section>
+      )}
 
       <nav className="tabs">
         {(
@@ -1134,6 +1229,12 @@ export function App() {
 
       {tab === "planning" && (
         <>
+          {opcs.length === 0 && (
+            <section className="card">
+              <h3>暂无 OPC，请先创建</h3>
+              <p>你可以使用“一键创建 OPC”或“手动创建 OPC”完成初始化。</p>
+            </section>
+          )}
           {planningManifest && planningManifest.items && planningManifest.items.length > 0 && (
             <section className="card">
               <h3>本周日历</h3>
@@ -1172,35 +1273,37 @@ export function App() {
               </div>
             </section>
           )}
-          <section className="card form-card">
-            <h3>生成本周计划</h3>
+          {opcs.length > 0 && (
+            <section className="card form-card">
+              <h3>生成本周计划</h3>
+              <label>
+                Objective
+              <textarea value={objective} onChange={(e) => setObjective(e.target.value)} />
+            </label>
             <label>
-              Objective
-            <textarea value={objective} onChange={(e) => setObjective(e.target.value)} />
-          </label>
-          <label>
-            Reference Accounts (comma separated)
-            <input value={refs} onChange={(e) => setRefs(e.target.value)} />
-          </label>
-          <label>
-            Topic Days
-            <input
-              type="number"
-              min={1}
-              max={14}
-              value={topicDaysInput}
-              placeholder="留空使用后端默认值"
-              onChange={(e) => setTopicDaysInput(e.target.value)}
-            />
-          </label>
-          <label>
-            Source Data Dir
-            <input value={sourceDataDir} onChange={(e) => setSourceDataDir(e.target.value)} />
-          </label>
-          <button className="primary-cta" onClick={() => void runScenario()} disabled={loading}>
-            生成本周计划
-          </button>
-        </section>
+              Reference Accounts (comma separated)
+              <input value={refs} onChange={(e) => setRefs(e.target.value)} />
+            </label>
+            <label>
+              Topic Days
+              <input
+                type="number"
+                min={1}
+                max={14}
+                value={topicDaysInput}
+                placeholder="留空使用后端默认值"
+                onChange={(e) => setTopicDaysInput(e.target.value)}
+              />
+            </label>
+            <label>
+              Source Data Dir
+              <input value={sourceDataDir} onChange={(e) => setSourceDataDir(e.target.value)} />
+            </label>
+            <button className="primary-cta" onClick={() => void runScenario()} disabled={loading}>
+              生成本周计划
+            </button>
+          </section>
+          )}
         </>
       )}
 

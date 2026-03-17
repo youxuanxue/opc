@@ -1,0 +1,16 @@
+{
+  "zhichangluosidao": {
+    "target_account": "职场螺丝刀",
+    "objective": "聊职场生存与升职技能，每日更新，每篇文章内容字数强约束在1000字-1100字。",
+    "references": ["刘润", "职场知行先锋", "栩先生", "MBA智库"],
+    "source_data_dir": "",
+    "name": "职场螺丝刀GzhCuratorOpc"
+  },
+  "yiqichengzhang": {
+    "target_account": "懿起成长",
+    "objective": "一个37岁的土木工程师爸爸，记录10岁四年级儿子大懿和7岁一年级女儿小懿的成长过程、优质陪伴和教育经验等。每日更新，每篇文章内容字数强约束在1000字-1100字。",
+    "references": ["贼娃", "普娃", "三个妈妈六个娃", "三秦家长学校"],
+    "source_data_dir": "",
+    "name": "懿起成长GzhCuratorOpc"
+  }
+}
