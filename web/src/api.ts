@@ -23,11 +23,12 @@ export const api = {
   theme: () => req<Record<string, string>>("/api/theme"),
   config: () =>
     req<{
-      default_opc_create: { opc_id: string; name: string; template: string };
+      default_opc_create: { opc_id: string; name: string; template: string; account_preset?: string };
       default_scenario_id: string;
     }>("/api/config"),
   opcs: () => req<OpcItem[]>("/api/opcs"),
-  createOpc: (payload: { opc_id: string; name: string; template: string }) =>
+  presets: () => req<{ presets: Array<{ key: string; target_account: string; name: string }> }>("/api/opc/presets"),
+  createOpc: (payload: { opc_id: string; name: string; template: string; account_preset?: string }) =>
     req<Record<string, unknown>>("/api/opc/create", {
       method: "POST",
       body: JSON.stringify(payload),

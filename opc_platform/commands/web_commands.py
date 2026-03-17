@@ -12,7 +12,14 @@ from urllib.parse import parse_qs, urlparse
 
 from ..commands.decision_commands import approve_decision, list_decisions
 from ..commands.graph_commands import submit_graph_review, view_graph
-from ..commands.opc_commands import create_opc, describe_opc, get_app_config, get_planning_defaults, list_catalog
+from ..commands.opc_commands import (
+    create_opc,
+    describe_opc,
+    get_app_config,
+    get_planning_defaults,
+    list_catalog,
+    list_presets,
+)
 from ..commands.publish_commands import publish_candidate_to_draftbox, trigger_publish
 from ..commands.run_commands import (
     list_runs,
@@ -125,6 +132,9 @@ def serve_web(root: Path, host: str, port: int) -> None:
                 if path == "/api/opcs":
                     catalog = list_catalog(root)
                     self._json_response(200, catalog.get("opcs", []))
+                    return
+                if path == "/api/opc/presets":
+                    self._json_response(200, {"presets": list_presets(root)})
                     return
                 if path.startswith("/api/opc/"):
                     opc_id = path.rsplit("/", 1)[-1]
@@ -399,6 +409,7 @@ def serve_web(root: Path, host: str, port: int) -> None:
                         opc_id=str(body.get("opc_id") or ""),
                         name=str(body.get("name") or ""),
                         template=str(body.get("template") or "gzh-curator"),
+                        account_preset=str(body.get("account_preset") or "") or None,
                     )
                     self._json_response(200, payload)
                     return

@@ -20,7 +20,7 @@ class MvpTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             init_workspace(root)
-            create_opc(root, "gzh-curator", "GzhCuratorOpc", "gzh-curator")
+            create_opc(root, "gzh-curator", "GzhCuratorOpc", "gzh-curator", "zhichangluosidao")
             result = run_scenario(
                 root=root,
                 opc_id="gzh-curator",
@@ -43,7 +43,7 @@ class MvpTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             init_workspace(root)
-            create_opc(root, "gzh-curator", "GzhCuratorOpc", "gzh-curator")
+            create_opc(root, "gzh-curator", "GzhCuratorOpc", "gzh-curator", "zhichangluosidao")
             submit_graph_review(
                 root=root,
                 opc_id="gzh-curator",
@@ -59,7 +59,7 @@ class MvpTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             init_workspace(root)
-            create_opc(root, "gzh-curator", "GzhCuratorOpc", "gzh-curator")
+            create_opc(root, "gzh-curator", "GzhCuratorOpc", "gzh-curator", "zhichangluosidao")
             first = run_scenario(
                 root=root,
                 opc_id="gzh-curator",
@@ -89,7 +89,7 @@ class MvpTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             init_workspace(root)
-            create_opc(root, "gzh-curator", "GzhCuratorOpc", "gzh-curator")
+            create_opc(root, "gzh-curator", "GzhCuratorOpc", "gzh-curator", "zhichangluosidao")
             scenario_path = root / ".opc" / "opcs" / "gzh-curator" / "scenarios" / "weekly-topic-batch.json"
             scenario_payload = json.loads(scenario_path.read_text(encoding="utf-8"))
             scenario_payload.pop("node_specs", None)

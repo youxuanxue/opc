@@ -500,6 +500,8 @@ def execute_spec_run(
             )
             edge_evidence.append({"node": node, "day": None, "inputs": input_evidence})
             source_data_dir = context.get("source_data_dir")
+            target_account = str(context.get("target_account") or "")
+            reference_accounts = context.get("reference_accounts") if isinstance(context.get("reference_accounts"), list) else []
             out = run_dir / "source_materials.json"
             if source_data_dir:
                 source_dir = Path(str(source_data_dir)).expanduser().resolve()
@@ -523,8 +525,8 @@ def execute_spec_run(
                         "source_data_dir": str(source_dir),
                         "source_files_count": len(files),
                         "source_files_sample": files[:50],
-                        "target_account": context.get("target_account", "职场螺丝刀"),
-                        "reference_accounts": context.get("reference_accounts", []),
+                        "target_account": target_account,
+                        "reference_accounts": reference_accounts,
                         "topic_days": topic_days,
                     },
                 )
@@ -534,8 +536,8 @@ def execute_spec_run(
                     out,
                     {
                         "source": "gzh-scraper",
-                        "target_account": context.get("target_account", "职场螺丝刀"),
-                        "reference_accounts": context.get("reference_accounts", []),
+                        "target_account": target_account,
+                        "reference_accounts": reference_accounts,
                         "topic_days": topic_days,
                     },
                 )
@@ -552,8 +554,8 @@ def execute_spec_run(
                     atomic_write_json(
                         run_dir / "scraper-config.json",
                         {
-                            "accounts": context.get("reference_accounts", []),
-                            "target_account": context.get("target_account", "职场螺丝刀"),
+                            "accounts": reference_accounts,
+                            "target_account": target_account,
                         },
                     )
                     timeline.append(node_event(node, "integration", result=run_external_cmd(command=command, cwd=repo.root)))
@@ -646,16 +648,12 @@ def execute_spec_run(
                 fail(node, f"day {publish_day} compliance failed; publishing blocked")
                 break
             cmd_tpl = scenario["execution"]["publisher"]["command"]
-            target_account = str(context.get("target_account") or "职场螺丝刀")
-            target_slug = str(
-                context.get("target_account_slug")
-                or target_account_to_slug(target_account)
-                or "zhichangluosidao"
-            )
+            target_account = str(context.get("target_account") or "")
+            target_slug = str(context.get("target_account_slug") or target_account_to_slug(target_account))
             command = [
                 p.format(
                     article_path=str(article_path),
-                    target_account=context.get("target_account", "职场螺丝刀"),
+                    target_account=target_account,
                     target_account_slug=target_slug,
                 )
                 for p in cmd_tpl
@@ -665,7 +663,7 @@ def execute_spec_run(
                 if i + 1 < len(command):
                     command[i + 1] = target_slug
             publish_result = {
-                "target": context.get("target_account", "职场螺丝刀"),
+                "target": target_account,
                 "target_account_slug": target_slug,
                 "saved_to_draft": False,
                 "integration_executed": execute_integrations,
@@ -1269,7 +1267,7 @@ def execute_spec_run(
         run_id=run_id,
         opc_id=opc_id,
         scenario_id=scenario_id,
-        target_account=str(merged_inputs.get("target_account") or "职场螺丝刀"),
+        target_account=str(merged_inputs.get("target_account") or ""),
         topic_days=topic_days,
         publish_day=publish_day,
     )
